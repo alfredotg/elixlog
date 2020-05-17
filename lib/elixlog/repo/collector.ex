@@ -3,7 +3,7 @@ defmodule Elixlog.Repo.Collector do
   alias Elixlog.Repo.Error
   alias Elixlog.Repo
 
-  defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: []
+  defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: [], cache: []
 
   def child_spec(opts) do
     %{
@@ -56,8 +56,11 @@ defmodule Elixlog.Repo.Collector do
     now = now(data)
 
     if now != data.timestamp do
-      if MapSet.size(data.set) > 0 do
-        Writer.write(Repo.redis_key(), data.set, data.timestamp)
+      data = if MapSet.size(data.set) > 0 do
+        Writer.write(self(), Repo.redis_key(), data.set, data.timestamp)
+        %{data | cache: [[data.timestamp, data.set] | data.cache]}
+      else
+        data
       end
       data = %{data | timestamp: now, set: MapSet.new()}
       collector(data)
@@ -72,6 +75,11 @@ defmodule Elixlog.Repo.Collector do
           data = %{data | clock: clock}
           collector(data)
 
+        {:xadd, timestamp} ->
+          cache = data.cache |> Enum.filter(fn [t, _] -> t != timestamp end)
+          data = %{data | cache: cache}
+          collector(data)
+
         {:sync, caller} ->
           send caller, {:sync}
           collector(data)
@@ -84,8 +92,16 @@ defmodule Elixlog.Repo.Collector do
           data = %{data | new_list: new_list}
           collector(data)
 
-        {:get, caller} ->
-          send caller, {:domains, MapSet.to_list(data.set), data.timestamp}
+        {:get, caller, from, to} ->
+          cache = [[data.timestamp, data.set] | data.cache]
+          uniq = Enum.reduce([MapSet.new() | cache], fn([t, set], uniq) -> 
+            if t >= from and t <= to do
+              MapSet.union(uniq, set)
+            else
+              uniq
+            end
+          end)
+          send caller, {:domains, uniq}
           collector(data)
 
         command -> 
@@ -97,11 +113,11 @@ defmodule Elixlog.Repo.Collector do
     end
   end
 
-  def get() do
-    send process_name(), {:get, self()}
+  def get(from, to) when is_integer(from) and is_integer(to) do
+    send process_name(), {:get, self(), from, to}
     receive do
-      {:domains, list, time} ->
-        {list, time}
+      {:domains, mset} ->
+        mset
     after
       1000 ->
         raise Error

@@ -8,10 +8,8 @@ defmodule Elixlog.RepoTest do
     clean_db()
 
     Collector.clean!()
-    now = DateTime.utc_now() |> DateTime.to_unix()
-    {list, time} = Collector.get()
-    assert assert [] = list
-    assert now - time <= 1
+    mset = Collector.get(0, 0)
+    assert assert [] = MapSet.to_list(mset)
   end
 
   test "Collector.add", %{conn: _} do
@@ -23,9 +21,8 @@ defmodule Elixlog.RepoTest do
     Collector.add!(["ya.ru", "google.com"])
     Collector.add!(["ms.com"])
     # collector collects domains
-    {list, time} = Collector.get()
-    list = Enum.sort(list)
-    assert assert 1000 = time
+    mset = Collector.get(1000, 1000)
+    list = Enum.sort(MapSet.to_list(mset))
     assert assert ["google.com", "ms.com", "ya.ru"] = list
 
     # storage is empty 
@@ -47,9 +44,8 @@ defmodule Elixlog.RepoTest do
     Writer.sync()
 
     # unsaved is empty
-    {list, time} = Collector.get()
-    list = Enum.sort(list)
-    assert assert 1001 = time
+    mset = Collector.get(1000, 1000)
+    list = Enum.sort(MapSet.to_list(mset))
     assert assert [] = list
 
     {:ok, list} = Repo.get_domains(1000, 1000)

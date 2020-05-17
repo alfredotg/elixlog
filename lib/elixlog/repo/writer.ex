@@ -54,7 +54,7 @@ defmodule Elixlog.Repo.Writer do
         command = ["XADD", key, "#{timestamp}-#{seq}"]
         {:ok, _ } = Redix.command(:redix, command ++ values)
         if sender != nil do
-          send sender, {:ok}
+          send sender, {:xadd, timestamp}
         end
 
         writer()
@@ -64,10 +64,10 @@ defmodule Elixlog.Repo.Writer do
     end
   end
 
-  def write(key, set, timestamp) when is_binary(key) and is_integer(timestamp) do
+  def write(sender, key, set, timestamp) when is_pid(sender) and is_binary(key) and is_integer(timestamp) do
     command = Enum.filter(MapSet.to_list(set), &is_binary/1) 
             |> Enum.flat_map(&([&1, "1"]))
-    send process_name(), {:xadd, key, timestamp, command, nil}
+    send process_name(), {:xadd, key, timestamp, command, sender}
   end
 
 

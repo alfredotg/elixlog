@@ -10,7 +10,7 @@ defmodule Elixlog.RepoWriterTest do
     send Writer.process_name(), {:xadd, Repo.redis_key, 10, ["ya.ru", 1], self()}
 
     receive do
-      {:ok} ->
+      {:xadd, _} ->
         {:ok}
     after
       1000 ->

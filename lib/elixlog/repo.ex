@@ -29,21 +29,14 @@ defmodule Elixlog.Repo do
     command = ["XRANGE", @redis_key, from, to]
     case Redix.command(:redix, command) do
       {:ok, list} ->
-        mset = Enum.reduce([MapSet.new() | list], fn row, mset -> 
-          [_, domains] = row
-          Enum.reduce([mset | Enum.chunk_every(domains, 2)], fn row, mset ->
-            [domain, _] = row
+        list = [MapSet.new() | list]
+        mset = list |> Enum.reduce(fn [_, domains], mset -> 
+          list = [mset | Enum.chunk_every(domains, 2)]
+          list |> Enum.reduce(fn [domain, _], mset ->
             MapSet.put(mset, domain)
           end)
         end)
-        {unsaved, time} = Collector.get()
-        mset = if time >= from && time <= to do
-          Enum.reduce([mset | unsaved], fn domain, mset -> 
-            MapSet.put(mset, domain)
-          end)
-        else
-          mset
-        end
+        mset = MapSet.union(mset, Collector.get(from, to))
         {:ok, MapSet.to_list(mset)}
       {:error, error} ->
         {:error, error}
