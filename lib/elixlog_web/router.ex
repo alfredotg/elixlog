@@ -14,15 +14,12 @@ defmodule ElixlogWeb.Router do
   end
 
   scope "/", ElixlogWeb do
-    pipe_through :browser
+    pipe_through :api
 
     get "/", PageController, :index
+    post "/visited_links", VisitedController, :post
+    get "/visited_domains", VisitedController, :get
   end
-
-  # Other scopes may use custom stacks.
-  # scope "/api", ElixlogWeb do
-  #   pipe_through :api
-  # end
 
   # Enables LiveDashboard only for development
   #

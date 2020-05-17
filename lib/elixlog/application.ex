@@ -8,8 +8,6 @@ defmodule Elixlog.Application do
   def start(_type, _args) do
     children = [
       # Start the Ecto repository
-      Elixlog.Repo,
-      # Start the Telemetry supervisor
       ElixlogWeb.Telemetry,
       # Start the PubSub system
       {Phoenix.PubSub, name: Elixlog.PubSub},
