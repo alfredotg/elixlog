@@ -19,7 +19,7 @@ defmodule Elixlog.Repo.Collector do
 
   def start_link([]) do
     {ok, pid} = Task.start_link(fn -> 
-      collector(nil, MapSet.new(), 0, []) 
+      collector(%__MODULE__{}) 
     end)
     Process.register(pid, process_name())
     {ok, pid}
@@ -35,59 +35,64 @@ defmodule Elixlog.Repo.Collector do
     end
   end
 
-  defp get_clock(clock) do
-    if clock === nil do
+  defp get_clock(collector) do
+    if collector.clock === nil do
       fn -> DateTime.utc_now |> DateTime.to_unix() end
     else
-      clock
+      collector.clock
     end
   end
 
-  defp now(clock, timestamp) do
-    now = clock.()
-    if now < timestamp do
+  defp now(collector) do
+    now = collector.clock.()
+    if now < collector.timestamp do
       raise  Error, message: "Clock should be monotonous"
     end
     now
   end
 
-  def collector(clock, set, timestamp, new_list) when is_integer(timestamp) and is_list(new_list) do
-    clock = get_clock(clock)
-    now = now(clock, timestamp)
+  def collector(data) do
+    data = %{data | clock: get_clock(data)}
+    now = now(data)
 
-    if now != timestamp do
-      if MapSet.size(set) > 0 do
-        Writer.write(Repo.redis_key(), set, timestamp)
+    if now != data.timestamp do
+      if MapSet.size(data.set) > 0 do
+        Writer.write(Repo.redis_key(), data.set, data.timestamp)
       end
-      collector(clock, MapSet.new(), now, new_list)
+      data = %{data | timestamp: now, set: MapSet.new()}
+      collector(data)
     else
-      set = add_to_set(set, new_list)
+      data = %{data | set: add_to_set(data.set, data.new_list), new_list: []}
       receive do
         {:reset, clock} ->
-          collector(clock, MapSet.new(), 0, [])
+          data = %__MODULE__{clock: clock}
+          collector(data)
 
         {:setclock, clock} ->
-          collector(clock, set, now, [])
+          data = %{data | clock: clock}
+          collector(data)
 
         {:sync, caller} ->
           send caller, {:sync}
-          collector(clock, set, now, [])
+          collector(data)
 
         {:clean} ->
-          collector(clock, MapSet.new(), 0, [])
+          data = %__MODULE__{clock: data.clock}
+          collector(data)
 
         {:add, new_list} ->
-          collector(clock, set, now, new_list)
+          data = %{data | new_list: new_list}
+          collector(data)
 
         {:get, caller} ->
-          send caller, {:domains, MapSet.to_list(set), now}
-          collector(clock, set, now, [])
+          send caller, {:domains, MapSet.to_list(data.set), data.timestamp}
+          collector(data)
 
         command -> 
           raise  Error, message: "Unknown command #{command}"
       after
         100 -> 
-          collector(clock, set, now, [])
+          collector(data)
       end
     end
   end
