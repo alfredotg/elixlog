@@ -1,8 +1,9 @@
 defmodule Elixlog.Repo.Collector do
   alias Elixlog.Repo.Writer
+  alias Elixlog.Repo.Error
   alias Elixlog.Repo
 
-  defexception message: "timeout"
+  defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: []
 
   def child_spec(opts) do
     %{
@@ -45,7 +46,7 @@ defmodule Elixlog.Repo.Collector do
   defp now(clock, timestamp) do
     now = clock.()
     if now < timestamp do
-      raise  __MODULE__, message: "Clock should be monotonous"
+      raise  Error, message: "Clock should be monotonous"
     end
     now
   end
@@ -83,7 +84,7 @@ defmodule Elixlog.Repo.Collector do
           collector(clock, set, now, [])
 
         command -> 
-          raise  __MODULE__, message: "Unknown command #{command}"
+          raise  Error, message: "Unknown command #{command}"
       after
         100 -> 
           collector(clock, set, now, [])
@@ -98,7 +99,7 @@ defmodule Elixlog.Repo.Collector do
         {list, time}
     after
       1000 ->
-        raise __MODULE__
+        raise Error
     end
   end
 
@@ -127,7 +128,7 @@ defmodule Elixlog.Repo.Collector do
         {:ok}
     after
       1000 ->
-        raise __MODULE__
+        raise Error
     end
   end
 end
