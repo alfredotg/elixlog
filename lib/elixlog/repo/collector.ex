@@ -34,18 +34,26 @@ defmodule Elixlog.Repo.Collector do
     end
   end
 
-  def collector(clock, set, timestamp, new_list) when is_integer(timestamp) and is_list(new_list) do
-    clock = if clock === nil do
+  defp get_clock(clock) do
+    if clock === nil do
       fn -> DateTime.utc_now |> DateTime.to_unix() end
     else
       clock
     end
+  end
+
+  defp now(clock, timestamp) do
     now = clock.()
     if now < timestamp do
       raise  __MODULE__, message: "Clock should be monotonous"
-    else
-      now
     end
+    now
+  end
+
+  def collector(clock, set, timestamp, new_list) when is_integer(timestamp) and is_list(new_list) do
+    clock = get_clock(clock)
+    now = now(clock, timestamp)
+
     if now != timestamp do
       if MapSet.size(set) > 0 do
         Writer.write(Repo.redis_key(), set, timestamp)
