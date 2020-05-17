@@ -3,10 +3,6 @@ defmodule Elixlog.RepoWriterTest do
   alias Elixlog.Repo.Writer
   alias Elixlog.Repo
 
-  defp clean_db do
-    {:ok, _} = Redix.command(:redix, ["DEL", Repo.redis_key])
-  end
-
   test "Writer.xadd", %{conn: _} do
     clean_db()
 

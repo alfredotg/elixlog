@@ -1,11 +1,6 @@
 defmodule ElixlogWeb.VisitedControllerTest do
   use ElixlogWeb.ConnCase
-  alias Elixlog.Repo
   alias Elixlog.Repo.Collector
-
-  defp clean_db do
-    {:ok, _} = Redix.command(:redix, ["DEL", Repo.redis_key])
-  end
 
   test "POST /visited_links 200", %{conn: conn} do
     clean_db()
