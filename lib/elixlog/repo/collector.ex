@@ -25,14 +25,14 @@ defmodule Elixlog.Repo.Collector do
     {ok, pid}
   end
 
+  defp add_to_set(set, []) do
+    set
+  end
+
   defp add_to_set(set, new_list) do
-    if !Enum.empty?(new_list) do
-      Enum.reduce([set | new_list], fn domain, set ->
-        MapSet.put(set, domain)
-      end)
-    else
-      set
-    end
+    Enum.reduce([set | new_list], fn domain, set ->
+      MapSet.put(set, domain)
+    end)
   end
 
   defp get_clock(collector) do
