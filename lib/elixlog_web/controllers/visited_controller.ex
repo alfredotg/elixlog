@@ -5,8 +5,16 @@ defmodule ElixlogWeb.VisitedController do
   def post(conn, params) do
     case params do
       %{"links" => links} when is_list(links) ->
-        links = links |> Enum.filter(&(is_binary(&1))) |> Enum.map(&(URI.parse(&1)))  
-        case Repo.save_links(links) do
+        links = links |> Enum.filter(&is_binary/1) |> Enum.map(&URI.parse/1)  
+        links = Enum.map(links, fn uri -> 
+          if uri.host != nil do
+            uri.host
+          else
+            uri.path
+          end
+        end)
+        links = Enum.filter(links, &is_binary/1) |> Enum.uniq()
+        case Repo.save_domains(links) do
           {:ok, _} ->
             json(conn, %{status: :ok})
           {:error, error} ->

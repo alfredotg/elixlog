@@ -1,4 +1,6 @@
 defmodule Elixlog.Repo do
+  alias Elixlog.Repo.Collector
+
   @redis_key "visited_links"
 
   def redis_key do @redis_key end
@@ -18,23 +20,13 @@ defmodule Elixlog.Repo do
     {:ok, _} = Redix.start_link(host: conf[:hostname], port: conf[:port], database: conf[:database], name: :redix)
   end
 
-  def save_links(links) when is_list(links) do
-    links = Enum.map(links, fn uri -> 
-      if uri.host != nil do
-        uri.host
-      else
-        uri.path
-      end
-    end)
-    links = Enum.filter(links, &(is_binary(&1))) 
-            |> Enum.flat_map(&([&1, "1"]))
-    command = ["XADD", @redis_key, "*"] ++ links
-    Redix.command(:redix, command)
+  def save_domains(domains) when is_list(domains) do
+    Collector.add(domains)
+    {:ok, domains}
   end
 
   def get_domains(from, to) when is_integer(from) and is_integer(to) do
-    to_msec = &(&1*1000)
-    command = ["XRANGE", @redis_key, to_msec.(from), to_msec.(to) + 999]
+    command = ["XRANGE", @redis_key, from, to]
     case Redix.command(:redix, command) do
       {:ok, list} ->
         mset = Enum.reduce([MapSet.new() | list], fn row, mset -> 
@@ -44,6 +36,14 @@ defmodule Elixlog.Repo do
             MapSet.put(mset, domain)
           end)
         end)
+        {unsaved, time} = Collector.get()
+        mset = if time >= from && time <= to do
+          Enum.reduce([mset | unsaved], fn domain, mset -> 
+            MapSet.put(mset, domain)
+          end)
+        else
+          mset
+        end
         {:ok, MapSet.to_list(mset)}
       {:error, error} ->
         {:error, error}
