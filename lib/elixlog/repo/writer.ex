@@ -44,6 +44,11 @@ defmodule Elixlog.Repo.Writer do
 
   def writer() do
     receive do
+      {:pause} ->
+        receive do
+          {:resume} ->
+            writer()
+        end
       {:sync, caller} ->
         send caller, {:sync}
 

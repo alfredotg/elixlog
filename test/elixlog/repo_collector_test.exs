@@ -56,6 +56,35 @@ defmodule Elixlog.RepoTest do
     set_clock_and_clean(nil)
   end
 
+  test "Collector.cache", %{conn: _} do
+    clean_db()
+    Collector.clean!()
+
+    set_clock_and_clean(fn -> 1000 end)
+    send Writer.process_name(), {:pause}
+
+    Collector.add!(["ms.com"])
+    set_clock(fn -> 1001 end)
+    Collector.add!(["ya.com"])
+    set_clock(fn -> 1002 end)
+
+    mset = Collector.get(1000, 1000)
+    assert assert ["ms.com"] = MapSet.to_list(mset)
+
+    mset = Collector.get(1000, 1001)
+    assert assert ["ms.com", "ya.com"] = Enum.sort(MapSet.to_list(mset))
+
+    send Writer.process_name(), {:resume}
+    Writer.sync()
+
+    # clean cache after save
+    mset = Collector.get(1000, 1001)
+    assert assert [] = MapSet.to_list(mset)
+
+    # restore clock
+    set_clock_and_clean(nil)
+  end
+
   defp set_clock(clock) do
     send Collector.process_name(), {:setclock, clock}
     Collector.sync()
