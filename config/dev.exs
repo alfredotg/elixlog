@@ -13,6 +13,11 @@ config :elixlog, ElixlogWeb.Endpoint,
   check_origin: false,
   watchers: []
 
+config :elixlog, Elixlog.Repo,
+  hostname: "redis",
+  port: 6379,
+  database: 2
+
 # ## SSL Support
 #
 # In order to use HTTPS in development, a self-signed

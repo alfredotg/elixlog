@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  elixlog:
+    image: alfredotg/elixlog
+    ports:
+      - 127.0.0.1:4005:4000
+    depends_on:
+      - redis
+
+  redis:
+    image: redis 
