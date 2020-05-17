@@ -10,6 +10,12 @@ use Mix.Config
 config :elixlog,
   ecto_repos: [Elixlog.Repo]
 
+# Configure your database
+config :elixlog, Elixlog.Repo,
+  hostname: "localhost",
+  port: 6379,
+  database: 1
+
 # Configures the endpoint
 config :elixlog, ElixlogWeb.Endpoint,
   url: [host: "localhost"],

@@ -11,6 +11,8 @@ defmodule Elixlog.Application do
       ElixlogWeb.Telemetry,
       # Start the PubSub system
       {Phoenix.PubSub, name: Elixlog.PubSub},
+      # Start redis client
+      Elixlog.Repo,
       # Start the Endpoint (http/https)
       ElixlogWeb.Endpoint
       # Start a worker by calling: Elixlog.Worker.start_link(arg)
