@@ -1,6 +1,6 @@
 defmodule Elixlog.Repo.Collector do
-  alias Elixlog.Repo
   alias Elixlog.Repo.Writer
+  alias Elixlog.Repo
 
   defexception message: "timeout"
 
@@ -24,48 +24,56 @@ defmodule Elixlog.Repo.Collector do
     {ok, pid}
   end
 
-  def collector(clock, set, timestamp, new_list) do
+  defp add_to_set(set, new_list) do
+    if !Enum.empty?(new_list) do
+      Enum.reduce([set | new_list], fn domain, set ->
+        MapSet.put(set, domain)
+      end)
+    else
+      set
+    end
+  end
+
+  def collector(clock, set, timestamp, new_list) when is_integer(timestamp) and is_list(new_list) do
     clock = if clock === nil do
       fn -> DateTime.utc_now |> DateTime.to_unix() end
     else
       clock
     end
     now = clock.()
-    now = if now < timestamp do
+    if now < timestamp do
       raise  __MODULE__, message: "Clock should be monotonous"
     else
       now
     end
     if now != timestamp do
       if MapSet.size(set) > 0 do
-        command = Enum.filter(MapSet.to_list(set), &is_binary/1) 
-                |> Enum.flat_map(&([&1, "1"]))
-        send Writer.process_name(), {:xadd, Repo.redis_key(), timestamp, command, nil}
+        Writer.write(Repo.redis_key(), set, timestamp)
       end
       collector(clock, MapSet.new(), now, new_list)
     else
-      set = if !Enum.empty?(new_list) do
-        Enum.reduce([set | new_list], fn domain, set ->
-          MapSet.put(set, domain)
-        end)
-      else
-        set
-      end
+      set = add_to_set(set, new_list)
       receive do
         {:reset, clock} ->
           collector(clock, MapSet.new(), 0, [])
+
         {:setclock, clock} ->
           collector(clock, set, now, [])
+
         {:sync, caller} ->
           send caller, {:sync}
           collector(clock, set, now, [])
+
         {:clean} ->
           collector(clock, MapSet.new(), 0, [])
+
         {:add, new_list} ->
           collector(clock, set, now, new_list)
+
         {:get, caller} ->
           send caller, {:domains, MapSet.to_list(set), now}
           collector(clock, set, now, [])
+
         command -> 
           raise  __MODULE__, message: "Unknown command #{command}"
       after
