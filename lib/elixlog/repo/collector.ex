@@ -34,12 +34,12 @@ defmodule Elixlog.Repo.Collector do
     end)
   end
 
+  defp get_clock(%{clock: nil}) do
+    fn -> DateTime.utc_now |> DateTime.to_unix() end
+  end
+
   defp get_clock(state) do
-    if state.clock === nil do
-      fn -> DateTime.utc_now |> DateTime.to_unix() end
-    else
-      state.clock
-    end
+    state.clock
   end
 
   defp now(state) do    
