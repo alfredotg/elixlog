@@ -58,23 +58,25 @@ defmodule Elixlog.Repo.Collector do
     if now != state.timestamp do
       state = if MapSet.size(state.set) > 0 do
         Writer.write(self(), state.set, state.timestamp)
-        %{state | unsaved: [[state.timestamp, state.set] | state.unsaved]}
+        Map.put(state, :unsaved, [[state.timestamp, state.set] | state.unsaved])
       else
         state
       end
-      state = %{state | timestamp: now, set: MapSet.new()}
+      state = state 
+        |> Map.put(:timestamp, now) 
+        |> Map.put(:set, MapSet.new())
       collector(state)
     else
-      state = %{state | set: add_to_set(state.set, state.new_list), new_list: []}
+      state = state
+        |> Map.put(:set, add_to_set(state.set, state.new_list))
+        |> Map.put(:new_list, [])
       receive do
         {:setclock, clock} ->
-          state = %{state | clock: clock}
-          collector(state)
+          collector(Map.put(state, :clock, clock))
 
         {:xadd, timestamp} ->
           unsaved = state.unsaved |> Enum.filter(fn [t, _] -> t != timestamp end)
-          state = %{state | unsaved: unsaved}
-          collector(state)
+          collector(Map.put(state, :unsaved, unsaved))
 
         {:sync, caller} ->
           send caller, {:sync, __MODULE__}
@@ -85,8 +87,7 @@ defmodule Elixlog.Repo.Collector do
           collector(state)
 
         {:add, new_list} ->
-          state = %{state | new_list: new_list}
-          collector(state)
+          collector(Map.put(state, :new_list, new_list))
 
         {:get, caller, from, to} ->
           unsaved = [[state.timestamp, state.set] | state.unsaved]
