@@ -41,5 +41,5 @@ mix test
 Для запуска тестов нужно настроить соединение с Redis в файле - config/test.exs
 
 
-### Зборка docker
+### Cборка docker
 docker build -t alfredotg/elixlog ./
