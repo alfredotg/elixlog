@@ -81,7 +81,7 @@ defmodule Elixlog.Repo.Collector do
           collector(state)
 
         {:sync, caller} ->
-          send caller, {:sync}
+          send caller, {:sync, __MODULE__}
           collector(state)
 
         {:clean} ->
@@ -145,7 +145,7 @@ defmodule Elixlog.Repo.Collector do
   def sync() do
     send process_name(), {:sync, self()}
     receive do
-      {:sync} ->
+      {:sync, __MODULE__} ->
         {:ok}
     after
       1000 ->

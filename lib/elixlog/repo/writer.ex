@@ -29,7 +29,7 @@ defmodule Elixlog.Repo.Writer do
             writer()
         end
       {:sync, caller} ->
-        send caller, {:sync}
+        send caller, {:sync, __MODULE__}
 
         writer()
 
@@ -56,7 +56,7 @@ defmodule Elixlog.Repo.Writer do
   def sync() do
     send process_name(), {:sync, self()}
     receive do
-      {:sync} ->
+      {:sync, __MODULE__} ->
         {:ok}
     after
       1000 ->
