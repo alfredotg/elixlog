@@ -3,7 +3,7 @@ defmodule Elixlog.Repo.Collector do
   alias Elixlog.Repo.Error
   alias Elixlog.Repo
 
-  defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: [], cache: []
+  defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: [], unsaved: []
 
   def child_spec(opts) do
     %{
@@ -35,66 +35,67 @@ defmodule Elixlog.Repo.Collector do
     end)
   end
 
-  defp get_clock(collector) do
-    if collector.clock === nil do
+  defp get_clock(state) do
+    if state.clock === nil do
       fn -> DateTime.utc_now |> DateTime.to_unix() end
     else
-      collector.clock
+      state.clock
     end
   end
 
-  defp now(collector) do
-    now = collector.clock.()
-    if now < collector.timestamp do
+  defp now(state) do    
+    clock = get_clock(state)
+    now = clock.()
+    if now < state.timestamp do
       raise  Error, message: "Clock should be monotonous"
+    else
+      now
     end
-    now
   end
 
-  def collector(data) do
-    data = %{data | clock: get_clock(data)}
-    now = now(data)
+  def collector(state) do
+    now = now(state)
 
-    if now != data.timestamp do
-      data = if MapSet.size(data.set) > 0 do
-        Writer.write(self(), Repo.redis_key(), data.set, data.timestamp)
-        %{data | cache: [[data.timestamp, data.set] | data.cache]}
+    if now != state.timestamp do
+      state = if MapSet.size(state.set) > 0 do
+        Writer.write(self(), Repo.redis_key(), state.set, state.timestamp)
+        %{state | unsaved: [[state.timestamp, state.set] | state.unsaved]}
       else
-        data
+        state
       end
-      data = %{data | timestamp: now, set: MapSet.new()}
-      collector(data)
+      state = %{state | timestamp: now, set: MapSet.new()}
+      collector(state)
     else
-      data = %{data | set: add_to_set(data.set, data.new_list), new_list: []}
+      state = %{state | set: add_to_set(state.set, state.new_list), new_list: []}
       receive do
         {:reset, clock} ->
-          data = %__MODULE__{clock: clock}
-          collector(data)
+          state = %__MODULE__{clock: clock}
+          collector(state)
 
         {:setclock, clock} ->
-          data = %{data | clock: clock}
-          collector(data)
+          state = %{state | clock: clock}
+          collector(state)
 
         {:xadd, timestamp} ->
-          cache = data.cache |> Enum.filter(fn [t, _] -> t != timestamp end)
-          data = %{data | cache: cache}
-          collector(data)
+          unsaved = state.unsaved |> Enum.filter(fn [t, _] -> t != timestamp end)
+          state = %{state | unsaved: unsaved}
+          collector(state)
 
         {:sync, caller} ->
           send caller, {:sync}
-          collector(data)
+          collector(state)
 
         {:clean} ->
-          data = %__MODULE__{clock: data.clock}
-          collector(data)
+          state = %__MODULE__{clock: state.clock}
+          collector(state)
 
         {:add, new_list} ->
-          data = %{data | new_list: new_list}
-          collector(data)
+          state = %{state | new_list: new_list}
+          collector(state)
 
         {:get, caller, from, to} ->
-          cache = [[data.timestamp, data.set] | data.cache]
-          uniq = Enum.reduce([MapSet.new() | cache], fn([t, set], uniq) -> 
+          unsaved = [[state.timestamp, state.set] | state.unsaved]
+          uniq = Enum.reduce([MapSet.new() | unsaved], fn([t, set], uniq) -> 
             if t >= from and t <= to do
               MapSet.union(uniq, set)
             else
@@ -102,13 +103,13 @@ defmodule Elixlog.Repo.Collector do
             end
           end)
           send caller, {:domains, uniq}
-          collector(data)
+          collector(state)
 
         command -> 
           raise  Error, message: "Unknown command #{command}"
       after
         100 -> 
-          collector(data)
+          collector(state)
       end
     end
   end
