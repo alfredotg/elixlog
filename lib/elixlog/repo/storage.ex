@@ -1,8 +1,5 @@
 defmodule Elixlog.Repo.Storage do
-
   @redis_key "visited_links"
-
-  def redis_key do @redis_key end
 
   def child_spec(opts) do
     %{
@@ -14,9 +11,8 @@ defmodule Elixlog.Repo.Storage do
     }
   end
 
-  def start_link([]) do
-    conf = Application.get_env(:elixlog, Elixlog.Repo)
-    Redix.start_link(host: conf[:hostname], port: conf[:port], database: conf[:database], name: :repo_storage)
+  def start_link(opts) do
+    Redix.start_link(host: opts[:hostname], port: opts[:port], database: opts[:database], name: :repo_storage)
   end
 
   def xrange(from, to) do

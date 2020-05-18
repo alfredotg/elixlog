@@ -12,7 +12,7 @@ defmodule Elixlog.Application do
       # Start the PubSub system
       {Phoenix.PubSub, name: Elixlog.PubSub},
       # Start redis client
-      Elixlog.Repo.Storage,
+      {Elixlog.Repo.Storage, Application.get_env(:elixlog, Elixlog.Repo)},
       Elixlog.Repo.Writer,
       Elixlog.Repo.Collector,
       # Start the Endpoint (http/https)
