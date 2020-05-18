@@ -1,7 +1,6 @@
 defmodule Elixlog.Repo.Collector do
   alias Elixlog.Repo.Writer
   alias Elixlog.Repo.Error
-  alias Elixlog.Repo
 
   defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: [], unsaved: []
 
@@ -58,7 +57,7 @@ defmodule Elixlog.Repo.Collector do
 
     if now != state.timestamp do
       state = if MapSet.size(state.set) > 0 do
-        Writer.write(self(), Repo.redis_key(), state.set, state.timestamp)
+        Writer.write(self(), state.set, state.timestamp)
         %{state | unsaved: [[state.timestamp, state.set] | state.unsaved]}
       else
         state

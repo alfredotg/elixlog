@@ -1,4 +1,6 @@
 defmodule Elixlog.Repo.Writer do
+  alias Elixlog.Repo.Storage
+
   defexception message: "timeout"
 
   def child_spec(opts) do
@@ -19,29 +21,6 @@ defmodule Elixlog.Repo.Writer do
     {ok, pid}
   end
 
-  defp get_next_seq(key, timestamp) do
-    command = ["XREVRANGE", key, timestamp, timestamp, "COUNT", 1]
-    {:ok, list} = Redix.command(:redix, command)
-    case list do
-      [first | _ ] ->
-        [key | _ ] = first
-        case String.split(key, "-") do
-          [oldtimestamp, tail] -> 
-            if oldtimestamp == "#{timestamp}" do
-              {seq, _} = Integer.parse(tail)
-              seq = seq + 1
-              "#{seq}"
-            else
-              "1"
-            end
-          _ ->
-            "1"
-        end
-      _ ->
-        "1"
-    end
-  end
-
   def writer() do
     receive do
       {:pause} ->
@@ -54,10 +33,8 @@ defmodule Elixlog.Repo.Writer do
 
         writer()
 
-      {:xadd, key, timestamp, values, sender} ->
-        seq = get_next_seq(key, timestamp)
-        command = ["XADD", key, "#{timestamp}-#{seq}"]
-        {:ok, _ } = Redix.command(:redix, command ++ values)
+      {:xadd, timestamp, values, sender} ->
+        {:ok, _ } = Storage.xadd(timestamp, values)
         if sender != nil do
           send sender, {:xadd, timestamp}
         end
@@ -69,10 +46,10 @@ defmodule Elixlog.Repo.Writer do
     end
   end
 
-  def write(sender, key, set, timestamp) when is_pid(sender) and is_binary(key) and is_integer(timestamp) do
+  def write(sender, set, timestamp) when is_pid(sender) and is_integer(timestamp) do
     command = Enum.filter(MapSet.to_list(set), &is_binary/1) 
             |> Enum.flat_map(&([&1, "1"]))
-    send process_name(), {:xadd, key, timestamp, command, sender}
+    send process_name(), {:xadd, timestamp, command, sender}
   end
 
 

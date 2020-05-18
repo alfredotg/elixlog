@@ -2,6 +2,7 @@ defmodule Elixlog.RepoTest do
   use ElixlogWeb.ConnCase
   alias Elixlog.Repo.Collector
   alias Elixlog.Repo.Writer
+  alias Elixlog.Repo.Storage
   alias Elixlog.Repo
 
   test "Collector.get", %{conn: _} do
@@ -26,7 +27,7 @@ defmodule Elixlog.RepoTest do
     assert assert ["google.com", "ms.com", "ya.ru"] = list
 
     # storage is empty 
-    {:ok, list} = Redix.command(:redix, ["XRANGE", Repo.redis_key(), 1000, 1000])
+    {:ok, list} = Storage.xrange(1000, 1000)
     assert assert [] = list 
 
     # repo gets data from collector

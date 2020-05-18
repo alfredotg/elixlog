@@ -1,7 +1,7 @@
 defmodule ElixlogWeb.ConnCase do
-  alias Elixlog.Repo
   alias Elixlog.Repo.Collector
   alias Elixlog.Repo.Writer
+  alias Elixlog.Repo.Storage
 
   @moduledoc """
   This module defines the test case to be used by
@@ -48,6 +48,6 @@ defmodule ElixlogWeb.ConnCase do
   def clean_db do
     Collector.clean!()
     Writer.sync()
-    {:ok, _} = Redix.command(:redix, ["DEL", Repo.redis_key])
+    {:ok, _} = Storage.del()
   end
 end
