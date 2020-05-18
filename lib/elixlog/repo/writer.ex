@@ -1,7 +1,6 @@
 defmodule Elixlog.Repo.Writer do
   alias Elixlog.Repo.Storage
-
-  defexception message: "timeout"
+  alias Elixlog.Repo.Error
 
   def child_spec(opts) do
     %{
@@ -42,7 +41,7 @@ defmodule Elixlog.Repo.Writer do
         writer()
 
       command -> 
-          raise  __MODULE__, message: "Unknown command #{command}"
+          raise  Error, module: __MODULE__, message: "Unknown command #{command}"
     end
   end
 
@@ -60,7 +59,7 @@ defmodule Elixlog.Repo.Writer do
         {:ok}
     after
       1000 ->
-        raise __MODULE__
+        raise Error, module: __MODULE__
     end
   end
 end

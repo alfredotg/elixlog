@@ -1,3 +1,3 @@
 defmodule Elixlog.Repo.Error do
-  defexception message: "timeout"
+  defexception module: nil, message: "timeout"
 end

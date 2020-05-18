@@ -101,7 +101,7 @@ defmodule Elixlog.Repo.Collector do
           collector(state)
 
         command -> 
-          raise  Error, message: "Unknown command #{command}"
+          raise  Error, module: __MODULE__, message: "Unknown command #{command}"
       after
         100 -> 
           collector(state)
@@ -116,7 +116,7 @@ defmodule Elixlog.Repo.Collector do
         mset
     after
       1000 ->
-        raise Error
+        raise Error, module: __MODULE__
     end
   end
 
@@ -145,7 +145,7 @@ defmodule Elixlog.Repo.Collector do
         {:ok}
     after
       1000 ->
-        raise Error
+        raise Error, module: __MODULE__
     end
   end
 end
