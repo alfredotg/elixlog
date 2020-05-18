@@ -46,7 +46,7 @@ defmodule Elixlog.Repo.Collector do
     clock = get_clock(state)
     now = clock.()
     if now < state.timestamp do
-      raise  Error, message: "Clock should be monotonous"
+      state.timestamp
     else
       now
     end
