@@ -92,8 +92,8 @@ defmodule Elixlog.RepoTest do
   end
 
   defp set_clock_and_clean(clock) do
-    send Collector.process_name(), {:reset, clock}
     Collector.clean!()
+    send Collector.process_name(), {:setclock, clock}
     clean_db()
   end
 end

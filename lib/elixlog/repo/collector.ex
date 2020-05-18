@@ -67,10 +67,6 @@ defmodule Elixlog.Repo.Collector do
     else
       state = %{state | set: add_to_set(state.set, state.new_list), new_list: []}
       receive do
-        {:reset, clock} ->
-          state = %__MODULE__{clock: clock}
-          collector(state)
-
         {:setclock, clock} ->
           state = %{state | clock: clock}
           collector(state)
