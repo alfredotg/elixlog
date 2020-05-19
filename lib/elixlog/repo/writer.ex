@@ -2,8 +2,6 @@ defmodule Elixlog.Repo.Writer do
   alias Elixlog.Repo.Storage
   use GenServer
 
-  def process_name() do :repo_writer end
-
   def child_spec(opts) do
     %{
       id: __MODULE__,
@@ -14,13 +12,13 @@ defmodule Elixlog.Repo.Writer do
     }
   end
 
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, %{}, name: opts[:name])
+  end
+
   @impl true
   def init(state) do
     {:ok, state}
-  end
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, %{}, name: opts[:name])
   end
 
   @impl true
@@ -46,22 +44,22 @@ defmodule Elixlog.Repo.Writer do
     {:reply, :ok, state}
   end
 
-  def write(sender, set, timestamp) when is_map(set) and (is_pid(sender) or is_nil(sender)) and is_integer(timestamp) do
+  def write(pid, sender, set, timestamp) when is_map(set) and (is_pid(sender) or is_nil(sender)) and is_integer(timestamp) do
     values = Enum.filter(MapSet.to_list(set), &is_binary/1) 
             |> Enum.flat_map(&([&1, "1"]))
 
-    GenServer.cast(process_name(), {:xadd, timestamp, values, sender})
+    GenServer.cast(pid, {:xadd, timestamp, values, sender})
   end
 
-  def sync() do
-    GenServer.call(process_name(), {:sync})
+  def sync(pid) do
+    GenServer.call(pid, {:sync})
   end
 
-  def pause() do
-    GenServer.cast(process_name(), {:pause})
+  def pause(pid) do
+    GenServer.cast(pid, {:pause})
   end
 
-  def resume() do
-    send process_name(), {:resume}
+  def resume(pid) do
+    send pid, {:resume}
   end
 end

@@ -47,7 +47,7 @@ defmodule ElixlogWeb.ConnCase do
 
   def clean_db do
     Collector.clean!()
-    Writer.sync()
+    Writer.sync(Writer)
     {:ok, _} = Storage.del()
   end
 end

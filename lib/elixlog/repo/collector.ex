@@ -2,7 +2,7 @@ defmodule Elixlog.Repo.Collector do
   alias Elixlog.Repo.Writer
   use GenServer
 
-  defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: [], unsaved: []
+  defstruct clock: nil, set: MapSet.new(), writer: nil, timestamp: 0, new_list: [], unsaved: []
 
   def process_name() do :repo_collector end
 
@@ -16,6 +16,11 @@ defmodule Elixlog.Repo.Collector do
     }
   end
 
+  def start_link(opts) do
+    writer = Keyword.fetch!(opts, :writer)
+    GenServer.start_link(__MODULE__, %__MODULE__{writer: writer}, name: opts[:name])
+  end
+
   @impl true
   def init(state) do
     schedule_work()
@@ -24,10 +29,6 @@ defmodule Elixlog.Repo.Collector do
 
   defp schedule_work do
     Process.send_after(self(), :work, 300)
-  end
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, %__MODULE__{}, name: opts[:name])
   end
 
   defp get_clock(%{clock: nil}) do
@@ -65,7 +66,7 @@ defmodule Elixlog.Repo.Collector do
     now = now(state)
     state = if now != state.timestamp do
       state = if MapSet.size(state.set) > 0 do
-        Writer.write(self(), state.set, state.timestamp)
+        Writer.write(state.writer, self(), state.set, state.timestamp)
         Map.put(state, :unsaved, [[state.timestamp, state.set] | state.unsaved])
       else
         state
@@ -81,7 +82,7 @@ defmodule Elixlog.Repo.Collector do
 
   @impl true
   def handle_cast({:clean}, state) do
-    state = %__MODULE__{clock: state.clock}
+    state = %__MODULE__{writer: state.writer, clock: state.clock}
     {:noreply, state}
   end
 

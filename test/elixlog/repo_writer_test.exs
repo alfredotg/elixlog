@@ -8,8 +8,8 @@ defmodule Elixlog.RepoWriterTest do
 
     set = MapSet.new()
     set = MapSet.put(set, "ya.ru")
-    Writer.write(nil, set, 10)
-    Writer.write(self(), set, 10)
+    Writer.write(Writer, nil, set, 10)
+    Writer.write(Writer, self(), set, 10)
 
     receive do
       {:xadd, _} ->

@@ -9,7 +9,7 @@ defmodule Elixlog.RepoCollectorTest do
   test "Collector.get", %{conn: _} do
     clean_db()
   
-    {:ok, pid} = Collector.start_link([name: nil])
+    {:ok, pid} = Collector.start_link([name: nil, writer: Writer])
 
     mset = Collector.get(pid, 0, 0)
     assert assert [] = MapSet.to_list(mset)
@@ -20,7 +20,7 @@ defmodule Elixlog.RepoCollectorTest do
   test "Collector.add", %{conn: _} do
     clean_db()
 
-    {:ok, pid} = Collector.start_link([name: nil])
+    {:ok, pid} = Collector.start_link([name: nil, writer: Writer])
 
     set_clock_and_clean(pid, fn -> 1000 end)
 
@@ -37,7 +37,7 @@ defmodule Elixlog.RepoCollectorTest do
 
     ## ticking..., save
     set_clock(pid, fn -> 1001 end)
-    Writer.sync()
+    Writer.sync(Writer)
 
     ## unsaved is empty
     mset = Collector.get(pid, 1000, 1000)
@@ -54,10 +54,10 @@ defmodule Elixlog.RepoCollectorTest do
   test "Collector.cache", %{conn: _} do
     clean_db()
 
-    {:ok, pid} = Collector.start_link([name: nil])
+    {:ok, pid} = Collector.start_link([name: nil, writer: Writer])
 
     set_clock_and_clean(pid, fn -> 1000 end)
-    Writer.pause()
+    Writer.pause(Writer)
 
     Collector.add!(pid, ["ms.com"])
     set_clock(pid, fn -> 1001 end)
@@ -70,8 +70,8 @@ defmodule Elixlog.RepoCollectorTest do
     mset = Collector.get(pid, 1000, 1001)
     assert assert ["ms.com", "ya.com"] = Enum.sort(MapSet.to_list(mset))
 
-    send Writer.process_name(), {:resume}
-    Writer.sync()
+    send Writer, {:resume}
+    Writer.sync(Writer)
 
     # clean cache after save
     mset = Collector.get(pid, 1000, 1001)
