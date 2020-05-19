@@ -1,52 +1,46 @@
-defmodule Elixlog.RepoTest do
+defmodule Elixlog.RepoCollectorTest do
   use ElixlogWeb.ConnCase
   alias Elixlog.Repo.Collector
-  alias Elixlog.Repo.CollectorGen
+  alias Elixlog.Repo.Collector
   alias Elixlog.Repo.Writer
   alias Elixlog.Repo.Storage
   alias Elixlog.Repo
 
   test "Collector.get", %{conn: _} do
     clean_db()
+  
+    {:ok, pid} = Collector.start_link([name: nil])
 
-    Collector.clean!()
-    mset = Collector.get(0, 0)
+    mset = Collector.get(pid, 0, 0)
     assert assert [] = MapSet.to_list(mset)
+
+    GenServer.stop(pid)
   end
 
   test "Collector.add", %{conn: _} do
     clean_db()
-    Collector.clean!()
 
-    set_clock_and_clean(fn -> 1000 end)
+    {:ok, pid} = Collector.start_link([name: nil])
 
-    Collector.add!(["ya.ru", "google.com"])
-    Collector.add!(["ms.com"])
-    # collector collects domains
-    mset = Collector.get(1000, 1000)
+    set_clock_and_clean(pid, fn -> 1000 end)
+
+    Collector.add!(pid, ["ya.ru", "google.com"])
+    Collector.add!(pid, ["ms.com"])
+    ## collector collects domains
+    mset = Collector.get(pid, 1000, 1000)
     list = Enum.sort(MapSet.to_list(mset))
     assert assert ["google.com", "ms.com", "ya.ru"] = list
 
-    # storage is empty 
+    ## storage is empty 
     {:ok, list} = Storage.xrange(1000, 1000)
     assert assert [] = list 
 
-    # repo gets data from collector
-    {:ok, list} = Repo.get_domains(1000, 1000)
-    list = Enum.sort(list)
-    assert assert ["google.com", "ms.com", "ya.ru"] = list
-
-    # if time matchs
-    {:ok, list} = Repo.get_domains(1001, 1001)
-    list = Enum.sort(list)
-    assert assert [] = list
-
-    # ticking..., save
-    set_clock(fn -> 1001 end)
+    ## ticking..., save
+    set_clock(pid, fn -> 1001 end)
     Writer.sync()
 
-    # unsaved is empty
-    mset = Collector.get(1000, 1000)
+    ## unsaved is empty
+    mset = Collector.get(pid, 1000, 1000)
     list = Enum.sort(MapSet.to_list(mset))
     assert assert [] = list
 
@@ -54,47 +48,47 @@ defmodule Elixlog.RepoTest do
     list = Enum.sort(list)
     assert assert ["google.com", "ms.com", "ya.ru"] = list
 
-    # restore clock
-    set_clock_and_clean(nil)
+    GenServer.stop(pid)
   end
 
   test "Collector.cache", %{conn: _} do
     clean_db()
-    Collector.clean!()
 
-    set_clock_and_clean(fn -> 1000 end)
+    {:ok, pid} = Collector.start_link([name: nil])
+
+    set_clock_and_clean(pid, fn -> 1000 end)
     Writer.pause()
 
-    Collector.add!(["ms.com"])
-    set_clock(fn -> 1001 end)
-    Collector.add!(["ya.com"])
-    set_clock(fn -> 1002 end)
+    Collector.add!(pid, ["ms.com"])
+    set_clock(pid, fn -> 1001 end)
+    Collector.add!(pid, ["ya.com"])
+    set_clock(pid, fn -> 1002 end)
 
-    mset = Collector.get(1000, 1000)
+    mset = Collector.get(pid, 1000, 1000)
     assert assert ["ms.com"] = MapSet.to_list(mset)
 
-    mset = Collector.get(1000, 1001)
+    mset = Collector.get(pid, 1000, 1001)
     assert assert ["ms.com", "ya.com"] = Enum.sort(MapSet.to_list(mset))
 
     send Writer.process_name(), {:resume}
     Writer.sync()
 
     # clean cache after save
-    mset = Collector.get(1000, 1001)
+    mset = Collector.get(pid, 1000, 1001)
     assert assert [] = MapSet.to_list(mset)
 
     # restore clock
-    set_clock_and_clean(nil)
+    GenServer.stop(pid)
   end
 
-  defp set_clock(clock) do
-    send Collector.process_name(), {:setclock, clock}
-    Collector.sync()
+  defp set_clock(pid, clock) do
+    Collector.set_clock(pid, clock)
+    Collector.sync(pid)
   end
 
-  defp set_clock_and_clean(clock) do
-    Collector.clean!()
-    send Collector.process_name(), {:setclock, clock}
+  defp set_clock_and_clean(pid, clock) do
+    Collector.clean!(pid)
+    Collector.set_clock(pid, clock)
     clean_db()
   end
 end
