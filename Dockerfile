@@ -10,5 +10,5 @@ COPY ./config ./config
 COPY ./lib ./lib 
 COPY ./priv ./priv 
 COPY ./test ./test
-RUN mix 
+RUN mix compile 
 CMD ["mix", "phx.server"]
