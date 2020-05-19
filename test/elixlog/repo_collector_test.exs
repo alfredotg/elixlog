@@ -62,7 +62,7 @@ defmodule Elixlog.RepoTest do
     Collector.clean!()
 
     set_clock_and_clean(fn -> 1000 end)
-    send Writer.process_name(), {:pause}
+    Writer.pause()
 
     Collector.add!(["ms.com"])
     set_clock(fn -> 1001 end)

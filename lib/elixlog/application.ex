@@ -13,8 +13,8 @@ defmodule Elixlog.Application do
       {Phoenix.PubSub, name: Elixlog.PubSub},
       # Start redis client
       {Elixlog.Repo.Storage, Application.get_env(:elixlog, Elixlog.Repo)},
-      Elixlog.Repo.Writer,
-      Elixlog.Repo.Collector,
+      {Elixlog.Repo.Writer, [name: Elixlog.Repo.Writer.process_name()]},
+      {Elixlog.Repo.Collector, [name: Elixlog.Repo.Collector.process_name()]},
       # Start the Endpoint (http/https)
       ElixlogWeb.Endpoint
       # Start a worker by calling: Elixlog.Worker.start_link(arg)

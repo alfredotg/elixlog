@@ -1,6 +1,8 @@
 defmodule Elixlog.Repo.Writer do
   alias Elixlog.Repo.Storage
-  alias Elixlog.Repo.Error
+  use GenServer
+
+  def process_name() do :repo_writer end
 
   def child_spec(opts) do
     %{
@@ -12,54 +14,56 @@ defmodule Elixlog.Repo.Writer do
     }
   end
 
-  def process_name() do :repo_writer end
-
-  def start_link([]) do
-    {ok, pid} = Task.start_link(fn -> writer() end)
-    Process.register(pid, process_name())
-    {ok, pid}
+  @impl true
+  def init(state) do
+    {:ok, state}
   end
 
-  def writer() do
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, %{}, name: opts[:name])
+  end
+
+  @impl true
+  def handle_cast({:pause}, state) do
     receive do
-      {:pause} ->
-        receive do
-          {:resume} ->
-            writer()
-        end
-      {:sync, caller} ->
-        send caller, {:sync, __MODULE__}
-
-        writer()
-
-      {:xadd, timestamp, values, sender} ->
-        {:ok, _ } = Storage.xadd(timestamp, values)
-        if sender != nil do
-          send sender, {:xadd, timestamp}
-        end
-
-        writer()
-
-      command -> 
-          raise  Error, module: __MODULE__, message: "Unknown command #{command}"
+      {:resume} ->
+        state
     end
+    {:noreply, state}
   end
 
-  def write(sender, set, timestamp) when is_pid(sender) and is_integer(timestamp) do
-    command = Enum.filter(MapSet.to_list(set), &is_binary/1) 
+  @impl true
+  def handle_cast({:xadd, timestamp, values, sender}, state) do
+    {:ok, _ } = Storage.xadd(timestamp, values)
+    if sender != nil do
+      send sender, {:xadd, timestamp}
+    end
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_call({:sync}, _from,  state) do
+    {:reply, :ok, state}
+  end
+
+
+  def write(sender, set, timestamp) when is_map(set) and (is_pid(sender) or is_nil(sender)) and is_integer(timestamp) do
+    values = Enum.filter(MapSet.to_list(set), &is_binary/1) 
             |> Enum.flat_map(&([&1, "1"]))
-    send process_name(), {:xadd, timestamp, command, sender}
+
+    GenServer.cast(process_name(), {:xadd, timestamp, values, sender})
   end
 
 
   def sync() do
-    send process_name(), {:sync, self()}
-    receive do
-      {:sync, __MODULE__} ->
-        {:ok}
-    after
-      1000 ->
-        raise Error, module: __MODULE__
-    end
+    GenServer.call(process_name(), {:sync})
+  end
+
+  def pause() do
+    GenServer.cast(process_name(), {:pause})
+  end
+
+  def resume() do
+    send process_name(), {:resume}
   end
 end

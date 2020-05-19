@@ -6,8 +6,10 @@ defmodule Elixlog.RepoWriterTest do
   test "Writer.xadd", %{conn: _} do
     clean_db()
 
-    send Writer.process_name(), {:xadd, 10, ["ya.ru", 1], nil}
-    send Writer.process_name(), {:xadd, 10, ["ya.ru", 1], self()}
+    set = MapSet.new()
+    set = MapSet.put(set, "ya.ru")
+    Writer.write(nil, set, 10)
+    Writer.write(self(), set, 10)
 
     receive do
       {:xadd, _} ->

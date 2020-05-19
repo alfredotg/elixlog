@@ -43,6 +43,10 @@ defmodule Elixlog.Repo.Storage do
     end
   end
 
+  def xadd(_, []) do
+    {:ok, nil}
+  end
+
   def xadd(timestamp, values) when is_integer(timestamp) do
     seq = get_next_seq(timestamp)
     command = ["XADD", @redis_key, "#{timestamp}-#{seq}"]

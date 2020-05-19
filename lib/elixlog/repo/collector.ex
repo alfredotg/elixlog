@@ -4,6 +4,8 @@ defmodule Elixlog.Repo.Collector do
 
   defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: [], unsaved: []
 
+  def process_name() do :repo_collector end
+
   def child_spec(opts) do
     %{
       id: __MODULE__,
@@ -14,13 +16,11 @@ defmodule Elixlog.Repo.Collector do
     }
   end
 
-  def process_name() do :repo_collector end
-
-  def start_link([]) do
+  def start_link(opts) do
     {ok, pid} = Task.start_link(fn -> 
       collector(%__MODULE__{}) 
     end)
-    Process.register(pid, process_name())
+    Process.register(pid, opts[:name])
     {ok, pid}
   end
 
