@@ -46,14 +46,12 @@ defmodule Elixlog.Repo.Writer do
     {:reply, :ok, state}
   end
 
-
   def write(sender, set, timestamp) when is_map(set) and (is_pid(sender) or is_nil(sender)) and is_integer(timestamp) do
     values = Enum.filter(MapSet.to_list(set), &is_binary/1) 
             |> Enum.flat_map(&([&1, "1"]))
 
     GenServer.cast(process_name(), {:xadd, timestamp, values, sender})
   end
-
 
   def sync() do
     GenServer.call(process_name(), {:sync})

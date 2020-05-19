@@ -1,6 +1,6 @@
 defmodule Elixlog.Repo.Collector do
   alias Elixlog.Repo.Writer
-  alias Elixlog.Repo.Error
+  use GenServer
 
   defstruct clock: nil, set: MapSet.new(), timestamp: 0, new_list: [], unsaved: []
 
@@ -16,22 +16,13 @@ defmodule Elixlog.Repo.Collector do
     }
   end
 
+  @impl true
+  def init(state) do
+    {:ok, state}
+  end
+
   def start_link(opts) do
-    {ok, pid} = Task.start_link(fn -> 
-      collector(%__MODULE__{}) 
-    end)
-    Process.register(pid, opts[:name])
-    {ok, pid}
-  end
-
-  defp add_to_set(set, []) do
-    set
-  end
-
-  defp add_to_set(set, new_list) do
-    Enum.reduce([set | new_list], fn domain, set ->
-      MapSet.put(set, domain)
-    end)
+    GenServer.start_link(__MODULE__, %__MODULE__{}, name: opts[:name])
   end
 
   defp get_clock(%{clock: nil}) do
@@ -52,101 +43,112 @@ defmodule Elixlog.Repo.Collector do
     end
   end
 
-  def collector(state) do
-    now = now(state)
+  defp add_to_state(state, []) do
+    state
+  end
 
-    if now != state.timestamp do
+  defp add_to_state(state, new_list) when is_list(new_list) do
+    set = Enum.reduce([state.set | new_list], fn domain, set ->
+      MapSet.put(set, domain)
+    end)
+    state
+      |> Map.put(:set, set)
+      |> Map.put(:new_list, [])
+  end
+
+  defp work(state) do
+    now = now(state)
+    state = if now != state.timestamp do
       state = if MapSet.size(state.set) > 0 do
         Writer.write(self(), state.set, state.timestamp)
         Map.put(state, :unsaved, [[state.timestamp, state.set] | state.unsaved])
       else
         state
       end
-      state = state 
+      state 
         |> Map.put(:timestamp, now) 
         |> Map.put(:set, MapSet.new())
-      collector(state)
     else
-      state = state
-        |> Map.put(:set, add_to_set(state.set, state.new_list))
-        |> Map.put(:new_list, [])
-      receive do
-        {:setclock, clock} ->
-          collector(Map.put(state, :clock, clock))
+      state
+    end
+    add_to_state(state, state.new_list)
+  end
 
-        {:xadd, timestamp} ->
-          unsaved = state.unsaved |> Enum.filter(fn [t, _] -> t != timestamp end)
-          collector(Map.put(state, :unsaved, unsaved))
+  @impl true
+  def handle_cast({:clean}, state) do
+    state = %__MODULE__{clock: state.clock}
+    {:noreply, state}
+  end
 
-        {:sync, caller} ->
-          send caller, {:sync, __MODULE__}
-          collector(state)
+  @impl true
+  def handle_cast({:setclock, clock}, state) do
+    state = work(Map.put(state, :clock, clock))
+    {:noreply, state}
+  end
 
-        {:clean} ->
-          state = %__MODULE__{clock: state.clock}
-          collector(state)
+  @impl true
+  def handle_cast({:add, new_list}, state) do
+    state = Map.put(state, :new_list, new_list)
+    state = work(state)
+    {:noreply, state}
+  end
 
-        {:add, new_list} ->
-          collector(Map.put(state, :new_list, new_list))
+  @impl true
+  def handle_info({:xadd, timestamp}, state) do
+    unsaved = state.unsaved |> Enum.filter(fn [t, _] -> t != timestamp end)
+    state = Map.put(state, :unsaved, unsaved)
+    {:noreply, state}
+  end
 
-        {:get, caller, from, to} ->
-          unsaved = [[state.timestamp, state.set] | state.unsaved]
-          uniq = Enum.reduce([MapSet.new() | unsaved], fn([t, set], uniq) -> 
-            if t >= from and t <= to do
-              MapSet.union(uniq, set)
-            else
-              uniq
-            end
-          end)
-          send caller, {:domains, uniq}
-          collector(state)
+  @impl true
+  def handle_call({:sync}, _from,  state) do
+    {:reply, :ok, state}
+  end
 
-        command -> 
-          raise  Error, module: __MODULE__, message: "Unknown command #{command}"
-      after
-        100 -> 
-          collector(state)
+  @impl true
+  def handle_call({:get, from, to}, _from, state) when is_integer(from) and is_integer(to) do
+    unsaved = [[state.timestamp, state.set] | state.unsaved]
+    uniq = Enum.reduce([MapSet.new() | unsaved], fn([t, set], uniq) -> 
+      if t >= from and t <= to do
+        MapSet.union(uniq, set)
+      else
+        uniq
       end
-    end
+    end)
+    {:reply, uniq, state}
   end
 
-  def get(from, to) when is_integer(from) and is_integer(to) do
-    send process_name(), {:get, self(), from, to}
-    receive do
-      {:domains, mset} ->
-        mset
-    after
-      1000 ->
-        raise Error, module: __MODULE__
-    end
+  def clean(pid) do
+    GenServer.cast(pid, {:clean})
   end
 
-  def add(list) when is_list(list) do
-    send process_name(), {:add, list}
-  end
-
-  def add!(list) when is_list(list) do
-    add(list)
-    sync()
-  end
-
-  def clean() do
-    send process_name(), {:clean}
+  def clean!(pid) do
+    clean(pid)
+    sync(pid)
   end
 
   def clean!() do
-    clean()
-    sync()
+    clean!(process_name())
   end
 
-  def sync() do
-    send process_name(), {:sync, self()}
-    receive do
-      {:sync, __MODULE__} ->
-        {:ok}
-    after
-      1000 ->
-        raise Error, module: __MODULE__
-    end
+  def sync(pid) do
+    GenServer.call(pid, {:sync})
+  end
+
+  def get(pid, from, to) when is_integer(from) and is_integer(to) do
+    GenServer.call(pid, {:get, from, to})
+  end
+
+  def set_clock(pid, clock) do
+    GenServer.cast(pid, {:setclock, clock})
+  end
+
+  def add(pid, list) when is_pid(pid) and is_list(list) do
+    GenServer.cast(pid, {:add, list})
+  end
+
+  def add!(pid, list) when is_pid(pid) and is_list(list) do
+    add(pid, list)
+    sync(pid)
   end
 end

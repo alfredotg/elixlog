@@ -3,7 +3,7 @@ defmodule Elixlog.Repo do
   alias Elixlog.Repo.Storage
 
   def save_domains(domains) when is_list(domains) do
-    Collector.add(domains)
+    Collector.add(Collector.process_name(), domains)
     {:ok, domains}
   end
 
@@ -17,7 +17,7 @@ defmodule Elixlog.Repo do
             MapSet.put(mset, domain)
           end)
         end)
-        mset = MapSet.union(mset, Collector.get(from, to))
+        mset = MapSet.union(mset, Collector.get(Collector.process_name(), from, to))
         {:ok, MapSet.to_list(mset)}
       {:error, error} ->
         {:error, error}

@@ -1,6 +1,7 @@
 defmodule Elixlog.RepoTest do
   use ElixlogWeb.ConnCase
   alias Elixlog.Repo.Collector
+  alias Elixlog.Repo.CollectorGen
   alias Elixlog.Repo.Writer
   alias Elixlog.Repo.Storage
   alias Elixlog.Repo
