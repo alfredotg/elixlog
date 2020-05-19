@@ -143,11 +143,11 @@ defmodule Elixlog.Repo.Collector do
     GenServer.cast(pid, {:setclock, clock})
   end
 
-  def add(pid, list) when is_pid(pid) and is_list(list) do
+  def add(pid, list) when is_list(list) do
     GenServer.cast(pid, {:add, list})
   end
 
-  def add!(pid, list) when is_pid(pid) and is_list(list) do
+  def add!(pid, list) when is_list(list) do
     add(pid, list)
     sync(pid)
   end

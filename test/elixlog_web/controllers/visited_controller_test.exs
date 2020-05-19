@@ -24,7 +24,7 @@ defmodule ElixlogWeb.VisitedControllerTest do
       "funbox.ru"]})
     assert assert %{"status" => "ok"} = json_response(conn, 200) 
 
-    Collector.sync()
+    Collector.sync(Collector.process_name())
 
     time = DateTime.utc_now() |> DateTime.to_unix()
     conn = get(conn, "/visited_domains", %{from: time - 10, to: time})
@@ -41,7 +41,7 @@ defmodule ElixlogWeb.VisitedControllerTest do
     conn = post(conn, "/visited_links", %{links: ["https://ya.ru", "funbox.ru"]})
     assert assert %{"status" => "ok"} = json_response(conn, 200) 
 
-    Collector.sync()
+    Collector.sync(Collector.process_name())
 
     conn = get(conn, "/visited_domains", %{from: 0, to: 1})
     response = json_response(conn, 200)
