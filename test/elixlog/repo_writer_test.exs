@@ -1,5 +1,6 @@
 defmodule Elixlog.RepoWriterTest do
   use ElixlogWeb.ConnCase
+  alias Elixlog.Repo
   alias Elixlog.Repo.Writer
   alias Elixlog.Repo.Storage
 
@@ -19,7 +20,7 @@ defmodule Elixlog.RepoWriterTest do
         raise "Timeout"
     end
 
-    {:ok, list} = Storage.xrange("-", "+")
+    {:ok, list} = Storage.xrange(Repo.storage_process(), "-", "+")
     assert assert [["10-1", ["ya.ru", "1"]], ["10-2", ["ya.ru", "1"]]] = list
   end
 end

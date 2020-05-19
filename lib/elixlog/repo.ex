@@ -3,6 +3,7 @@ defmodule Elixlog.Repo do
   alias Elixlog.Repo.Storage
 
   def collector_process() do Collector end
+  def storage_process() do Storage end
 
   def save_domains(domains) when is_list(domains) do
     Collector.add(collector_process(), domains)
@@ -10,7 +11,7 @@ defmodule Elixlog.Repo do
   end
 
   def get_domains(from, to) when is_integer(from) and is_integer(to) do
-    case Storage.xrange(from, to) do
+    case Storage.xrange(storage_process(), from, to) do
       {:ok, list} ->
         list = [MapSet.new() | list]
         mset = list |> Enum.reduce(fn [_, domains], mset -> 

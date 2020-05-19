@@ -13,7 +13,8 @@ defmodule Elixlog.Repo.Writer do
   end
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, %{}, name: opts[:name])
+    storage = Keyword.fetch!(opts, :storage)
+    GenServer.start_link(__MODULE__, %{storage: storage}, name: opts[:name])
   end
 
   @impl true
@@ -32,7 +33,7 @@ defmodule Elixlog.Repo.Writer do
 
   @impl true
   def handle_cast({:xadd, timestamp, values, sender}, state) do
-    {:ok, _ } = Storage.xadd(timestamp, values)
+    {:ok, _ } = Storage.xadd(state.storage, timestamp, values)
     if sender != nil do
       send sender, {:xadd, timestamp}
     end

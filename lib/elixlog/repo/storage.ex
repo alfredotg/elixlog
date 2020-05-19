@@ -12,17 +12,17 @@ defmodule Elixlog.Repo.Storage do
   end
 
   def start_link(opts) do
-    Redix.start_link(host: opts[:hostname], port: opts[:port], database: opts[:database], name: :repo_storage)
+    Redix.start_link(host: opts[:hostname], port: opts[:port], database: opts[:database], name: opts[:name])
   end
 
-  def xrange(from, to) do
+  def xrange(pid, from, to) do
     command = ["XRANGE", @redis_key, from, to]
-    Redix.command(:repo_storage, command)
+    Redix.command(pid, command)
   end
 
-  defp get_next_seq(timestamp) when is_integer(timestamp) do
+  defp get_next_seq(pid, timestamp) when is_integer(timestamp) do
     command = ["XREVRANGE", @redis_key, timestamp, timestamp, "COUNT", 1]
-    {:ok, list} = Redix.command(:repo_storage, command)
+    {:ok, list} = Redix.command(pid, command)
     case list do
       [first | _ ] ->
         [key | _ ] = first
@@ -43,17 +43,17 @@ defmodule Elixlog.Repo.Storage do
     end
   end
 
-  def xadd(_, []) do
+  def xadd(_pid, _timestamp, []) do
     {:ok, nil}
   end
 
-  def xadd(timestamp, values) when is_integer(timestamp) do
-    seq = get_next_seq(timestamp)
+  def xadd(pid, timestamp, values) when is_integer(timestamp) do
+    seq = get_next_seq(pid, timestamp)
     command = ["XADD", @redis_key, "#{timestamp}-#{seq}"]
-    Redix.command(:repo_storage, command ++ values)
+    Redix.command(pid, command ++ values)
   end
 
-  def del() do
-    Redix.command(:repo_storage, ["DEL", @redis_key])
+  def del(pid) do
+    Redix.command(pid, ["DEL", @redis_key])
   end
 end

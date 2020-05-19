@@ -32,7 +32,7 @@ defmodule Elixlog.RepoCollectorTest do
     assert assert ["google.com", "ms.com", "ya.ru"] = list
 
     ## storage is empty 
-    {:ok, list} = Storage.xrange(1000, 1000)
+    {:ok, list} = Storage.xrange(Repo.storage_process(), 1000, 1000)
     assert assert [] = list 
 
     ## ticking..., save
