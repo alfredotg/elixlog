@@ -18,7 +18,12 @@ defmodule Elixlog.Repo.Collector do
 
   @impl true
   def init(state) do
+    schedule_work()
     {:ok, state}
+  end
+
+  defp schedule_work do
+    Process.send_after(self(), :work, 300)
   end
 
   def start_link(opts) do
@@ -90,6 +95,13 @@ defmodule Elixlog.Repo.Collector do
   def handle_cast({:add, new_list}, state) do
     state = Map.put(state, :new_list, new_list)
     state = work(state)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:work, state) do
+    state = work(state)
+    schedule_work()
     {:noreply, state}
   end
 
