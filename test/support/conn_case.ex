@@ -2,6 +2,7 @@ defmodule ElixlogWeb.ConnCase do
   alias Elixlog.Repo.Collector
   alias Elixlog.Repo.Writer
   alias Elixlog.Repo.Storage
+  alias Elixlog.Repo
 
   @moduledoc """
   This module defines the test case to be used by
@@ -46,7 +47,7 @@ defmodule ElixlogWeb.ConnCase do
   end
 
   def clean_db do
-    Collector.clean!()
+    Collector.clean!(Repo.collector_process())
     Writer.sync(Writer)
     {:ok, _} = Storage.del()
   end

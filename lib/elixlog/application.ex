@@ -14,7 +14,7 @@ defmodule Elixlog.Application do
       # Start redis client
       {Elixlog.Repo.Storage, Application.get_env(:elixlog, Elixlog.Repo)},
       {Elixlog.Repo.Writer, [name: Elixlog.Repo.Writer]},
-      {Elixlog.Repo.Collector, [name: Elixlog.Repo.Collector.process_name(), writer: ElixlogWeb.Repo.Writer]},
+      {Elixlog.Repo.Collector, [name: Elixlog.Repo.collector_process(), writer: ElixlogWeb.Repo.Writer]},
       # Start the Endpoint (http/https)
       ElixlogWeb.Endpoint
       # Start a worker by calling: Elixlog.Worker.start_link(arg)

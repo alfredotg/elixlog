@@ -4,8 +4,6 @@ defmodule Elixlog.Repo.Collector do
 
   defstruct clock: nil, set: MapSet.new(), writer: nil, timestamp: 0, new_list: [], unsaved: []
 
-  def process_name() do :repo_collector end
-
   def child_spec(opts) do
     %{
       id: __MODULE__,
@@ -138,10 +136,6 @@ defmodule Elixlog.Repo.Collector do
   def clean!(pid) do
     clean(pid)
     sync(pid)
-  end
-
-  def clean!() do
-    clean!(process_name())
   end
 
   def sync(pid) do
