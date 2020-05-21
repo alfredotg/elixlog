@@ -11,16 +11,16 @@ defmodule Elixlog.Repo do
   end
 
   def get_domains(from, to) when is_integer(from) and is_integer(to) do
+    mset = Collector.get(collector_process(), from, to)
     case Storage.xrange(storage_process(), from, to) do
       {:ok, list} ->
-        list = [MapSet.new() | list]
+        list = [mset | list]
         mset = list |> Enum.reduce(fn [_, domains], mset -> 
           list = [mset | Enum.chunk_every(domains, 2)]
           list |> Enum.reduce(fn [domain, _], mset ->
             MapSet.put(mset, domain)
           end)
         end)
-        mset = MapSet.union(mset, Collector.get(collector_process(), from, to))
         {:ok, MapSet.to_list(mset)}
       {:error, error} ->
         {:error, error}
